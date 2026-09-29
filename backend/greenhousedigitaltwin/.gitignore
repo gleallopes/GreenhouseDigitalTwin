@@ -19,6 +19,7 @@ target/
 *.iml
 *.ipr
 
+
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
@@ -31,3 +32,22 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Logs
+*.log
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+dist/
+
+# Test / coverage
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
