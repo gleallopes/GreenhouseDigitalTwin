@@ -1,13 +1,27 @@
 package com.greenhousedigitaltwin.telemetry.application;
 
+import com.greenhousedigitaltwin.greenhouse.domain.SensorId;
+import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceRegistry;
 import com.greenhousedigitaltwin.telemetry.domain.MeasurementType;
 import com.greenhousedigitaltwin.telemetry.domain.Unit;
 
 public final class TelemetryValidator {
+    private final MeasurementSourceRegistry sourceRegistry;
+
+    public TelemetryValidator(MeasurementSourceRegistry sourceRegistry) {
+        this.sourceRegistry = sourceRegistry;
+    }
+
     public TelemetryValidationResult validate(TelemetryMessage message){
 
 //      Structure Validation
         if (message == null){
+            return TelemetryValidationResult.rejected(
+                    TelemetryRejectionReason.STRUCTURAL_ERROR
+            );
+        }
+
+        if (message.value() == null){
             return TelemetryValidationResult.rejected(
                     TelemetryRejectionReason.STRUCTURAL_ERROR
             );
@@ -78,7 +92,32 @@ public final class TelemetryValidator {
             );
         }
 
-        return TelemetryValidationResult.accepted();
+//        Source Validation
+        var sourceResult = sourceRegistry.validateSource(
+                message.deviceId(),
+                new SensorId(message.sensorId()),
+                measurementType
+        );
+
+        return switch (sourceResult){
+            case VALID -> TelemetryValidationResult.accepted();
+
+            case UNKNOWN_DEVICE -> TelemetryValidationResult.rejected(
+                    TelemetryRejectionReason.UNKNOWN_DEVICE
+            );
+
+            case UNKNOWN_SENSOR -> TelemetryValidationResult.rejected(
+                    TelemetryRejectionReason.UNKNOWN_SENSOR
+            );
+
+            case SENSOR_DEVICE_MISMATCH ->  TelemetryValidationResult.rejected(
+                    TelemetryRejectionReason.SENSOR_DEVICE_MISMATCH
+            );
+
+            case INCOMPATIBLE_MEASUREMENT_TYPE ->   TelemetryValidationResult.rejected(
+                    TelemetryRejectionReason.INCOMPATIBLE_MEASUREMENT_TYPE
+            );
+        };
     }
 
     private MeasurementType parseMeasurementType(String value){

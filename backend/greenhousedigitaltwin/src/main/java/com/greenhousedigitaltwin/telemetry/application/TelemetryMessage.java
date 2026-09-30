@@ -7,7 +7,7 @@ public record TelemetryMessage(
         String deviceId,
         String sensorId,
         String measurementType,
-        double value,
+        Double value,
         String unit,
         Instant measuredAt
 ) {
