@@ -17,7 +17,7 @@ public class TelemetryValidatorTest {
                 "TEMP-001",
                 "TEMPERATURE",
                 25.4,
-                "CELCIUS",
+                "CELSIUS",
                 Instant.parse("2026-09-24T18:30:15Z")
         );
 
@@ -34,7 +34,7 @@ public class TelemetryValidatorTest {
                 "TEMP-001",
                 "TEMPERATURE",
                 25.4,
-                "CELCIUS",
+                "CELSIUS",
                 Instant.parse("2026-09-24T18:30:15Z")
         );
 
@@ -54,7 +54,7 @@ public class TelemetryValidatorTest {
                 "TEMP-001",
                 "TEMPERATURE",
                 25.4,
-                "CELCIUS",
+                "CELSIUS",
                 Instant.parse("2026-09-24T18:30:15Z")
         );
 
@@ -74,7 +74,7 @@ public class TelemetryValidatorTest {
                 "TEMP-001",
                 "TEMPERATURE",
                 25.4,
-                "CELCIUS",
+                "CELSIUS",
                 null
         );
 
@@ -94,7 +94,7 @@ public class TelemetryValidatorTest {
                 "TEMP-001",
                 "TEMPERATURE",
                 Double.NaN,
-                "CELCIUS",
+                "CELSIUS",
                 Instant.parse("2026-09-24T18:30:15Z")
         );
         TelemetryValidationResult result = validator.validate(message);
@@ -103,5 +103,60 @@ public class TelemetryValidatorTest {
                 TelemetryRejectionReason.STRUCTURAL_ERROR,
                 result.rejectionReason()
         );
+    }
+
+    @Test
+    void shouldRejectUnknownMeasurementType(){
+        TelemetryMessage message = new TelemetryMessage(
+                "MSG-001",
+                "ARD-001",
+                "TEMP-001",
+                "PRESSURE",
+                25.4,
+                "CELSIUS",
+                Instant.parse("2026-09-24T18:30:15Z")
+        );
+
+        TelemetryValidationResult result = validator.validate(message);
+        assertFalse(result.valid());
+        assertEquals(
+                TelemetryRejectionReason.SEMANTIC_ERROR,
+                result.rejectionReason()
+        );
+    }
+
+    @Test
+    void shouldRejectIncompatibleMeasurementTypeAndUnit(){
+        TelemetryMessage message = new TelemetryMessage(
+                "MSG-001",
+                "ARD-001",
+                "TEMP-001",
+                "TEMPERATURE",
+                25.4,
+                "LUX",
+                Instant.parse("2026-09-24T18:30:15Z")
+        );
+        TelemetryValidationResult result = validator.validate(message);
+        assertFalse(result.valid());
+        assertEquals(
+                TelemetryRejectionReason.INCOMPATIBLE_MEASUREMENT_TYPE,
+                result.rejectionReason()
+        );
+    }
+
+    @Test
+    void shouldAcceptHumidityMeasurementType(){
+        TelemetryMessage message = new TelemetryMessage(
+                "MSG-001",
+                "ARD-001",
+                "TEMP-001",
+                "HUMIDITY",
+                25.4,
+                "PERCENT",
+                Instant.parse("2026-09-24T18:30:15Z")
+        );
+        TelemetryValidationResult result = validator.validate(message);
+        assertTrue(result.valid());
+        assertNull(result.rejectionReason());
     }
 }

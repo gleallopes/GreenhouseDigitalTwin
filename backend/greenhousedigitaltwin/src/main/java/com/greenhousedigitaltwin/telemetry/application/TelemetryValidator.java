@@ -1,8 +1,12 @@
 package com.greenhousedigitaltwin.telemetry.application;
 
+import com.greenhousedigitaltwin.telemetry.domain.MeasurementType;
+import com.greenhousedigitaltwin.telemetry.domain.Unit;
+
 public final class TelemetryValidator {
     public TelemetryValidationResult validate(TelemetryMessage message){
 
+//      Structure Validation
         if (message == null){
             return TelemetryValidationResult.rejected(
                     TelemetryRejectionReason.STRUCTURAL_ERROR
@@ -51,7 +55,45 @@ public final class TelemetryValidator {
             );
         }
 
+//        Semantic validation
+        MeasurementType measurementType = parseMeasurementType(message.measurementType());
+
+        if (measurementType == null){
+            return TelemetryValidationResult.rejected(
+                    TelemetryRejectionReason.SEMANTIC_ERROR
+            );
+        }
+
+        Unit unit = parseUnit(message.unit());
+
+        if (unit == null){
+            return TelemetryValidationResult.rejected(
+                    TelemetryRejectionReason.SEMANTIC_ERROR
+            );
+        }
+
+        if (!measurementType.supports(unit)){
+            return TelemetryValidationResult.rejected(
+                    TelemetryRejectionReason.INCOMPATIBLE_MEASUREMENT_TYPE
+            );
+        }
 
         return TelemetryValidationResult.accepted();
+    }
+
+    private MeasurementType parseMeasurementType(String value){
+        try {
+            return MeasurementType.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private Unit parseUnit(String value){
+        try {
+            return Unit.valueOf(value.trim().toUpperCase());
+        }catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }
