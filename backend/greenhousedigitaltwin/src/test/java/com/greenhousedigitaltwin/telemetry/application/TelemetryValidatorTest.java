@@ -20,6 +20,7 @@ public class TelemetryValidatorTest {
 
     @Mock
     private MeasurementSourceRegistry sourceRegistry;
+
     private TelemetryValidator validator;
 
     @BeforeEach

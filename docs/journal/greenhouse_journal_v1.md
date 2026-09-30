@@ -34,3 +34,18 @@ Today I learned how to make the firsts steps on the application. This is very us
 - configure docker-compose
 - test docker containers
 - test and run application
+
+## Update 2026.09.30
+
+Today I moved on telemetry and implemented 3 validation layers:
+- Structure Validation;
+- Semantic Validation;
+- Source Validation;
+
+and also tested these layers using a mock for inject dependency.
+
+### What Was Learned
+- Use Mock to inject dependency;
+- Write classes to validate telemetry;
+- Treat Incoming telemetry as untrusted before parse into domain;
+- Write tests to test scenarios;
