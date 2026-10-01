@@ -49,3 +49,13 @@ and also tested these layers using a mock for inject dependency.
 - Write classes to validate telemetry;
 - Treat Incoming telemetry as untrusted before parse into domain;
 - Write tests to test scenarios;
+
+## Update 2026.10.01
+
+Today I finished implementing the validations for incoming telemetry and was very productive.<br>
+I could understand the system's flow and dependencies injection practically.
+
+### What was learned
+- Handle errors by myself
+- Implement the concepts of Plausibility Validation by myself
+- Test these Plausibility Validation by myself
