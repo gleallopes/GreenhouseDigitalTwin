@@ -1,5 +1,6 @@
 package com.greenhousedigitaltwin.telemetry.application;
 import com.greenhousedigitaltwin.greenhouse.domain.SensorId;
+import com.greenhousedigitaltwin.telemetry.application.port.MeasurementPlausibilityValidator;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceRegistry;
 
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceValidationResult;
@@ -14,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,12 +27,21 @@ public class TelemetryValidatorTest {
     @Mock
     private TelemetryMessageRegistry messageRegistry;
 
+    @Mock
+    private MeasurementPlausibilityValidator plausibilityValidator;
+
     private TelemetryValidator validator;
 
     @BeforeEach
     void setUp() {
-        validator = new TelemetryValidator(sourceRegistry, messageRegistry);
+        validator = new TelemetryValidator(
+                sourceRegistry,
+                messageRegistry,
+                plausibilityValidator
+        );
     }
+
+    //      Structure Validation Test
 
     @Test
     void shouldAcceptStructurallyValidTelemetry() {
@@ -51,6 +62,11 @@ public class TelemetryValidatorTest {
         )).thenReturn(
                 MeasurementSourceValidationResult.VALID
         );
+
+        when(plausibilityValidator.isPlausible(
+                MeasurementType.TEMPERATURE,
+                25.4
+        )).thenReturn(true);
 
         TelemetryValidationResult result = validator.validate(message);
         assertTrue(result.valid());
@@ -175,6 +191,7 @@ public class TelemetryValidatorTest {
         );
     }
 
+    //        Semantic validation Test
     @Test
     void shouldAcceptHumidityMeasurementType(){
         TelemetryMessage message = new TelemetryMessage(
@@ -195,11 +212,17 @@ public class TelemetryValidatorTest {
                 MeasurementSourceValidationResult.VALID
         );
 
+        when(plausibilityValidator.isPlausible(
+                MeasurementType.HUMIDITY,
+                25.4
+        )).thenReturn(true);
+
         TelemetryValidationResult result = validator.validate(message);
         assertTrue(result.valid());
         assertNull(result.rejectionReason());
     }
 
+    //        Source Validation Test
     @Test
     void shouldAcceptTelemetryFromValidSource() {
 
@@ -210,6 +233,11 @@ public class TelemetryValidatorTest {
         )).thenReturn(
                 MeasurementSourceValidationResult.VALID
         );
+
+        when(plausibilityValidator.isPlausible(
+                MeasurementType.TEMPERATURE,
+                25.4
+        )).thenReturn(true);
 
         var result = validator.validate(validMessage());
 
@@ -267,6 +295,7 @@ public class TelemetryValidatorTest {
         );
     }
 
+    //        Duplicates validation Test
     @Test
     void shouldAcceptNewTelemetryMessage(){
 //      source from MOCK
@@ -278,6 +307,11 @@ public class TelemetryValidatorTest {
 
         when(messageRegistry.exists("MSG-001"))
                 .thenReturn(false);
+
+        when(plausibilityValidator.isPlausible(
+                MeasurementType.TEMPERATURE,
+                25.4
+        )).thenReturn(true);
 
         var result = validator.validate(validMessage());
         assertTrue(result.valid());
@@ -303,13 +337,90 @@ public class TelemetryValidatorTest {
         );
     }
 
+    //        Plausability verification Test
+    @Test
+    void shouldAcceptPlausibleSensorData(){
+        when(sourceRegistry.validateSource(
+                "ARD-001",
+                new SensorId("TEMP-001"),
+                MeasurementType.TEMPERATURE
+        )).thenReturn(MeasurementSourceValidationResult.VALID);
+
+        when(plausibilityValidator.isPlausible(
+                MeasurementType.TEMPERATURE,
+                25.4
+        )).thenReturn(true);
+
+        var result = validator.validate(validMessage());
+        assertTrue(result.valid());
+    }
+
+    @Test
+    void shouldRejectPlausibleSensorDataOutOfRange(){
+
+        var message = new TelemetryMessage(
+                "MSG-001",
+                "ARD-001",
+                "TEMP-001",
+                "TEMPERATURE",
+                -999.0,
+                "CELSIUS",
+                Instant.parse("2026-09-30T15:00:00Z")
+        );
+
+        when(sourceRegistry.validateSource(
+                "ARD-001",
+                new SensorId("TEMP-001"),
+                MeasurementType.TEMPERATURE
+        )).thenReturn(MeasurementSourceValidationResult.VALID);
+
+        when(messageRegistry.exists("MSG-001"))
+                .thenReturn(false);
+
+        when(plausibilityValidator.isPlausible(
+                MeasurementType.TEMPERATURE,
+                -999.0
+        )).thenReturn(false);
+
+        var result = validator.validate(message);
+        assertFalse(result.valid());
+        assertEquals(
+                TelemetryRejectionReason.PHYSICAL_VALUE_OUT_OF_RANGE,
+                result.rejectionReason());
+    }
+
+    @Test
+    void shouldRejectDuplicateMessageBeforeReachPlausibility(){
+        var message = validMessage();
+
+        when(sourceRegistry.validateSource(
+                "ARD-001",
+                new SensorId("TEMP-001"),
+                MeasurementType.TEMPERATURE
+        )).thenReturn(MeasurementSourceValidationResult.VALID);
+
+        when(messageRegistry.exists("MSG-001"))
+                .thenReturn(true);
+
+        var result = validator.validate(message);
+
+        assertFalse(result.valid());
+
+        assertEquals(
+                TelemetryRejectionReason.DUPLICATE_MESSAGE,
+                result.rejectionReason()
+        );
+
+        verifyNoInteractions(plausibilityValidator);
+    }
+
     private TelemetryMessage validMessage() {
         return new TelemetryMessage(
                 "MSG-001",
                 "ARD-001",
                 "TEMP-001",
                 "TEMPERATURE",
-                25.0,
+                25.4,
                 "CELSIUS",
                 Instant.parse("2026-09-30T15:00:00Z")
         );

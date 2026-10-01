@@ -1,8 +1,8 @@
 package com.greenhousedigitaltwin.telemetry.application;
 
 import com.greenhousedigitaltwin.greenhouse.domain.SensorId;
+import com.greenhousedigitaltwin.telemetry.application.port.MeasurementPlausibilityValidator;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceRegistry;
-import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceValidationResult;
 import com.greenhousedigitaltwin.telemetry.application.port.TelemetryMessageRegistry;
 import com.greenhousedigitaltwin.telemetry.domain.MeasurementType;
 import com.greenhousedigitaltwin.telemetry.domain.Unit;
@@ -10,12 +10,15 @@ import com.greenhousedigitaltwin.telemetry.domain.Unit;
 public final class TelemetryValidator {
     private final MeasurementSourceRegistry sourceRegistry;
     private final TelemetryMessageRegistry messageRegistry;
+    private final MeasurementPlausibilityValidator plausibilityValidator;
 
     public TelemetryValidator(
             MeasurementSourceRegistry sourceRegistry,
-            TelemetryMessageRegistry messageRegistry) {
+            TelemetryMessageRegistry messageRegistry,
+            MeasurementPlausibilityValidator plausibilityValidator) {
         this.sourceRegistry = sourceRegistry;
         this.messageRegistry = messageRegistry;
+        this.plausibilityValidator = plausibilityValidator;
     }
 
     public TelemetryValidationResult validate(TelemetryMessage message){
@@ -132,6 +135,16 @@ public final class TelemetryValidator {
         if (messageRegistry.exists(message.messageId())) {
             return TelemetryValidationResult.rejected(
                     TelemetryRejectionReason.DUPLICATE_MESSAGE
+            );
+        }
+
+//        Plausability verification
+        if (!plausibilityValidator.isPlausible(
+                measurementType,
+                message.value()
+        )){
+            return TelemetryValidationResult.rejected(
+                    TelemetryRejectionReason.PHYSICAL_VALUE_OUT_OF_RANGE
             );
         }
 
