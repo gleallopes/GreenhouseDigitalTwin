@@ -2,14 +2,20 @@ package com.greenhousedigitaltwin.telemetry.application;
 
 import com.greenhousedigitaltwin.greenhouse.domain.SensorId;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceRegistry;
+import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceValidationResult;
+import com.greenhousedigitaltwin.telemetry.application.port.TelemetryMessageRegistry;
 import com.greenhousedigitaltwin.telemetry.domain.MeasurementType;
 import com.greenhousedigitaltwin.telemetry.domain.Unit;
 
 public final class TelemetryValidator {
     private final MeasurementSourceRegistry sourceRegistry;
+    private final TelemetryMessageRegistry messageRegistry;
 
-    public TelemetryValidator(MeasurementSourceRegistry sourceRegistry) {
+    public TelemetryValidator(
+            MeasurementSourceRegistry sourceRegistry,
+            TelemetryMessageRegistry messageRegistry) {
         this.sourceRegistry = sourceRegistry;
+        this.messageRegistry = messageRegistry;
     }
 
     public TelemetryValidationResult validate(TelemetryMessage message){
@@ -99,25 +105,38 @@ public final class TelemetryValidator {
                 measurementType
         );
 
-        return switch (sourceResult){
-            case VALID -> TelemetryValidationResult.accepted();
+        switch (sourceResult){
+            case UNKNOWN_DEVICE -> {
+                return TelemetryValidationResult.rejected(
+                        TelemetryRejectionReason.UNKNOWN_DEVICE
+                );
+            }
+            case UNKNOWN_SENSOR -> {
+                return   TelemetryValidationResult.rejected(
+                        TelemetryRejectionReason.UNKNOWN_SENSOR
+                );
+            }
+            case SENSOR_DEVICE_MISMATCH -> {
+                return TelemetryValidationResult.rejected(
+                        TelemetryRejectionReason.SENSOR_DEVICE_MISMATCH
+                );
+            }
+            case INCOMPATIBLE_MEASUREMENT_TYPE -> {
+                return   TelemetryValidationResult.rejected(
+                        TelemetryRejectionReason.INCOMPATIBLE_MEASUREMENT_TYPE
+                );
+            }
+        }
 
-            case UNKNOWN_DEVICE -> TelemetryValidationResult.rejected(
-                    TelemetryRejectionReason.UNKNOWN_DEVICE
+//        Duplicates validation
+        if (messageRegistry.exists(message.messageId())) {
+            return TelemetryValidationResult.rejected(
+                    TelemetryRejectionReason.DUPLICATE_MESSAGE
             );
+        }
 
-            case UNKNOWN_SENSOR -> TelemetryValidationResult.rejected(
-                    TelemetryRejectionReason.UNKNOWN_SENSOR
-            );
+        return TelemetryValidationResult.accepted();
 
-            case SENSOR_DEVICE_MISMATCH ->  TelemetryValidationResult.rejected(
-                    TelemetryRejectionReason.SENSOR_DEVICE_MISMATCH
-            );
-
-            case INCOMPATIBLE_MEASUREMENT_TYPE ->   TelemetryValidationResult.rejected(
-                    TelemetryRejectionReason.INCOMPATIBLE_MEASUREMENT_TYPE
-            );
-        };
     }
 
     private MeasurementType parseMeasurementType(String value){

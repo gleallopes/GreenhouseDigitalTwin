@@ -3,6 +3,7 @@ import com.greenhousedigitaltwin.greenhouse.domain.SensorId;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceRegistry;
 
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceValidationResult;
+import com.greenhousedigitaltwin.telemetry.application.port.TelemetryMessageRegistry;
 import com.greenhousedigitaltwin.telemetry.domain.MeasurementType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,11 +22,14 @@ public class TelemetryValidatorTest {
     @Mock
     private MeasurementSourceRegistry sourceRegistry;
 
+    @Mock
+    private TelemetryMessageRegistry messageRegistry;
+
     private TelemetryValidator validator;
 
     @BeforeEach
     void setUp() {
-        validator = new TelemetryValidator(sourceRegistry);
+        validator = new TelemetryValidator(sourceRegistry, messageRegistry);
     }
 
     @Test
@@ -259,6 +263,42 @@ public class TelemetryValidatorTest {
         assertFalse(result.valid());
         assertEquals(
                 TelemetryRejectionReason.SENSOR_DEVICE_MISMATCH,
+                result.rejectionReason()
+        );
+    }
+
+    @Test
+    void shouldAcceptNewTelemetryMessage(){
+//      source from MOCK
+        when(sourceRegistry.validateSource(
+                "ARD-001",
+                new SensorId("TEMP-001"),
+                MeasurementType.TEMPERATURE
+        )).thenReturn(MeasurementSourceValidationResult.VALID);
+
+        when(messageRegistry.exists("MSG-001"))
+                .thenReturn(false);
+
+        var result = validator.validate(validMessage());
+        assertTrue(result.valid());
+    }
+
+    @Test
+    void shouldRejectDuplicateTelemetryMessage(){
+//        source from MOCK
+        when(sourceRegistry.validateSource(
+                "ARD-001",
+                new SensorId("TEMP-001"),
+                MeasurementType.TEMPERATURE
+        )).thenReturn(MeasurementSourceValidationResult.VALID);
+
+        when(messageRegistry.exists("MSG-001"))
+                .thenReturn(true);
+
+        var result = validator.validate(validMessage());
+        assertFalse(result.valid());
+        assertEquals(
+                TelemetryRejectionReason.DUPLICATE_MESSAGE,
                 result.rejectionReason()
         );
     }
