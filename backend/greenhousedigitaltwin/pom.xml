@@ -46,6 +46,7 @@
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency> <!-- PostgreSQL -->
 
+        <!-- PostgreSQL JDBC driver -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -89,6 +90,19 @@
             <version>1.21.4</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- Flyway integration with Spring Boot -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+
+        <!-- Flyway PostgreSQL support -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>

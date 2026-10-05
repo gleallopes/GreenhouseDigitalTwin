@@ -8,13 +8,10 @@ spring:
     password: greenhouse
 
   jpa:
-    hibernate:ddl-auto: none
+    hibernate:
+      ddl-auto: none
     open-in-view: false
 
+  flyway:
+    enabled: true
 
-
-#  Configure it later
-#  integration:
-#    mqtt:
-#      broker-url: tcp://localhost:1883
-#      client-id: greenhouse-digital-twin-backend
