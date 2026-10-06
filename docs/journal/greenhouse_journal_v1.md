@@ -59,3 +59,15 @@ I could understand the system's flow and dependencies injection practically.
 - Handle errors by myself
 - Implement the concepts of Plausibility Validation by myself
 - Test these Plausibility Validation by myself
+
+## Update 2026.10.05
+
+Today I created the first postgres table using flyway, learned JPA and created a mapper to convert a <br>
+domain entity into postgres data. I had a CVE alert when was adding flyway to maven, so I searched how to track <br>
+dependencies to se which one was related to the alert and to take the appropriate action to fix it instead of just <br>
+surppressing the alert.
+
+### What was learned
+- Use flyway to create tables
+- how JPA is used to persist data
+- How to track dependency error and make the appropriate choice to fix it.
