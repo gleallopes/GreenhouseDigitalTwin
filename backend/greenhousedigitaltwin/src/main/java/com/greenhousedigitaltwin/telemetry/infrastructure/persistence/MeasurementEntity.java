@@ -20,6 +20,9 @@ public class MeasurementEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "measurement_id",nullable = false,updatable = false,unique = true,length = 100)
+    private String measurementId;
+
     @Column (name="message_id", nullable = false, updatable = false)
     private String messageId;
 
@@ -41,12 +44,15 @@ public class MeasurementEntity {
     @Column(name = "received_at", nullable = false, updatable = false)
     private Instant receivedAt;
 
+
+
     protected MeasurementEntity() {
 //        Required by JPA
     }
 
-    public MeasurementEntity(String message, String sensorId, String measurementType, double value, String unit, Instant measuredAt, Instant receivedAt) {
-        this.messageId = message;
+    public MeasurementEntity(String measurementId, String messageId, String sensorId, String measurementType, double value, String unit, Instant measuredAt, Instant receivedAt) {
+        this.measurementId = measurementId;
+        this.messageId = messageId;
         this.sensorId = sensorId;
         this.measurementType = measurementType;
         this.value = value;
@@ -58,6 +64,8 @@ public class MeasurementEntity {
     public long getId() {
         return id;
     }
+
+    public String getMeasurementId() {return measurementId;}
 
     public String getMessageId() {
         return messageId;

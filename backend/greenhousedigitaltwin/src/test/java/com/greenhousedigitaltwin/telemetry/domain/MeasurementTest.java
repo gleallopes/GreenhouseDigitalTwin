@@ -27,11 +27,11 @@ public class MeasurementTest {
                 receivedAt
         );
 
-        assertEquals(25.4, measurement.getValue());
-        assertEquals(MeasurementType.TEMPERATURE, measurement.getType());
-        assertEquals(Unit.CELSIUS, measurement.getUnit());
-        assertEquals(measuredAt, measurement.getMeasuredAt());
-        assertEquals(receivedAt, measurement.getReceivedAt());
+        assertEquals(25.4, measurement.value());
+        assertEquals(MeasurementType.TEMPERATURE, measurement.type());
+        assertEquals(Unit.CELSIUS, measurement.unit());
+        assertEquals(measuredAt, measurement.measuredAt());
+        assertEquals(receivedAt, measurement.receivedAt());
     }
 
     @Test

@@ -5,16 +5,8 @@ import com.greenhousedigitaltwin.greenhouse.domain.SensorId;
 import java.time.Instant;
 import java.util.Objects;
 
-public class Measurement {
-
-    private final MeasurementId id;
-    private final MessageId messageId;
-    private final SensorId sensorId;
-    private final MeasurementType type;
-    private final double value;
-    private final Unit unit;
-    private final Instant measuredAt;
-    private final Instant receivedAt;
+public record Measurement(MeasurementId id, MessageId messageId, SensorId sensorId, MeasurementType type, double value,
+                          Unit unit, Instant measuredAt, Instant receivedAt) {
 
     public Measurement(MeasurementId id, MessageId messageId,
                        SensorId sensorId, MeasurementType type,
@@ -39,37 +31,5 @@ public class Measurement {
         }
 
         this.value = value;
-    }
-
-    public MeasurementId getId() {
-        return id;
-    }
-
-    public MessageId getMessageId() {
-        return messageId;
-    }
-
-    public SensorId getSensorId() {
-        return sensorId;
-    }
-
-    public MeasurementType getType() {
-        return type;
-    }
-
-    public double getValue() {
-        return value;
-    }
-
-    public Unit getUnit() {
-        return unit;
-    }
-
-    public Instant getMeasuredAt() {
-        return measuredAt;
-    }
-
-    public Instant getReceivedAt() {
-        return receivedAt;
     }
 }
