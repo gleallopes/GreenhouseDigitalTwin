@@ -1,0 +1,41 @@
+package com.greenhousedigitaltwin.twin.domain;
+
+import com.greenhousedigitaltwin.greenhouse.domain.SensorId;
+import com.greenhousedigitaltwin.telemetry.domain.MeasurementType;
+import com.greenhousedigitaltwin.telemetry.domain.Unit;
+
+import java.time.Instant;
+import java.util.Objects;
+
+public record SensorState (
+        SensorId sensorId,
+        MeasurementType measurementType,
+        double value,
+        Unit unit,
+        Instant measured_at,
+        Instant received_at
+){
+    public SensorState {
+        Objects.requireNonNull(sensorId);
+        Objects.requireNonNull(measurementType);
+        Objects.requireNonNull(unit);
+        Objects.requireNonNull(measured_at);
+        Objects.requireNonNull(received_at);
+
+        if (!Double.isFinite(value)) {
+            throw new IllegalArgumentException(
+                    "Sensor state value must be finite"
+            );
+        }
+    }
+
+    public boolean isNewerThan(SensorState current){
+        Objects.requireNonNull(current);
+
+        if (!sensorId.equals(current.sensorId())) {
+            throw new IllegalArgumentException("Cannot compare states from different sensors");
+        }
+
+        return measured_at.isAfter(current.measured_at());
+    }
+}
