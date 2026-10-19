@@ -68,4 +68,17 @@ public class MeasurementTest {
         );
     }
 
+    public static Measurement createMeasurement(String s, String s1) {
+        return new Measurement(
+                new MeasurementId(s),
+                new MessageId(s1),
+                new SensorId("TEMP-001"),
+                MeasurementType.TEMPERATURE,
+                25.4,
+                Unit.CELSIUS,
+                Instant.parse("2026-09-30T15:00:00Z"),
+                Instant.parse("2026-09-30T15:00:00Z")
+        );
+    }
+
 }

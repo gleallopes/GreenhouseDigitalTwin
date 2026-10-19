@@ -5,7 +5,7 @@ import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceReg
 
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceValidationResult;
 import com.greenhousedigitaltwin.telemetry.application.port.TelemetryMessageRegistry;
-import com.greenhousedigitaltwin.telemetry.domain.MeasurementType;
+import com.greenhousedigitaltwin.telemetry.domain.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -425,4 +425,5 @@ public class TelemetryValidatorTest {
                 Instant.parse("2026-09-30T15:00:00Z")
         );
     }
+
 }
