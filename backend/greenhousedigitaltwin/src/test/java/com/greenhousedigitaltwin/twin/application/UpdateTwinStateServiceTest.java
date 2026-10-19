@@ -53,7 +53,7 @@ public class UpdateTwinStateServiceTest {
                         && state.measurementType() == MeasurementType.TEMPERATURE
                         && state.value() == 25.4
                         && state.unit() == Unit.CELSIUS
-                        && state.measured_at().equals(Instant.parse("2026-10-16T10:00:00Z"))
+                        && state.measuredAt().equals(Instant.parse("2026-10-16T10:00:00Z"))
                         )
         );
     }

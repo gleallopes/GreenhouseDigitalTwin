@@ -24,10 +24,10 @@ public class PostgresTwinStateRepository implements TwinStateRepository {
                 incoming.measurementType().name(),
                 incoming.value(),
                 incoming.unit().name(),
-                incoming.measured_at(),
-                incoming.received_at()
+                incoming.measuredAt(),
+                incoming.receivedAt()
         );
 
-        return affectedRows == 0;
+        return affectedRows == 1;
     }
 }

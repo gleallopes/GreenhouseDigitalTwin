@@ -38,10 +38,10 @@ public class MeasurementEntity {
     @Column(name = "unit", nullable = false, updatable = false)
     private String unit;
 
-    @Column(name = "measured_at", nullable = false, updatable = false)
+    @Column(name = "measuredAt", nullable = false, updatable = false)
     private Instant measuredAt;
 
-    @Column(name = "received_at", nullable = false, updatable = false)
+    @Column(name = "receivedAt", nullable = false, updatable = false)
     private Instant receivedAt;
 
 

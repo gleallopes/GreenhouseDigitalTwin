@@ -23,10 +23,10 @@ public class TwinStateEntity {
     @Column(name = "unit", nullable = false)
     private String unit;
 
-    @Column(name = "measured_at", nullable = false)
+    @Column(name = "measuredAt", nullable = false)
     private Instant measuredAt;
 
-    @Column(name = "received_at", nullable = false)
+    @Column(name = "receivedAt", nullable = false)
     private Instant receivedAt;
 
     protected TwinStateEntity() {}

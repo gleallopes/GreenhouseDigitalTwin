@@ -12,15 +12,15 @@ public record SensorState (
         MeasurementType measurementType,
         double value,
         Unit unit,
-        Instant measured_at,
-        Instant received_at
+        Instant measuredAt,
+        Instant receivedAt
 ){
     public SensorState {
         Objects.requireNonNull(sensorId);
         Objects.requireNonNull(measurementType);
         Objects.requireNonNull(unit);
-        Objects.requireNonNull(measured_at);
-        Objects.requireNonNull(received_at);
+        Objects.requireNonNull(measuredAt);
+        Objects.requireNonNull(receivedAt);
 
         if (!Double.isFinite(value)) {
             throw new IllegalArgumentException(
@@ -36,6 +36,6 @@ public record SensorState (
             throw new IllegalArgumentException("Cannot compare states from different sensors");
         }
 
-        return measured_at.isAfter(current.measured_at());
+        return measuredAt.isAfter(current.measuredAt());
     }
 }
