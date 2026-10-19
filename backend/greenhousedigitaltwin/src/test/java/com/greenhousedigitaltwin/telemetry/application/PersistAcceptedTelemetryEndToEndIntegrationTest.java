@@ -1,0 +1,132 @@
+package com.greenhousedigitaltwin.telemetry.application;
+
+import com.greenhousedigitaltwin.greenhouse.domain.SensorId;
+import com.greenhousedigitaltwin.telemetry.domain.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+import java.time.Instant;
+
+import static com.greenhousedigitaltwin.telemetry.domain.MeasurementTest.createMeasurement;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+
+@Testcontainers
+@SpringBootTest
+public class PersistAcceptedTelemetryEndToEndIntegrationTest {
+    @Autowired
+    private PersistAcceptedTelemetryService service;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @BeforeEach
+    void setUp() {
+        jdbcTemplate.update("DELETE FROM twin_state");
+        jdbcTemplate.update("DELETE FROM measurement");
+        jdbcTemplate.update("DELETE FROM sensor");
+        jdbcTemplate.update("DELETE FROM device");
+        jdbcTemplate.update("DELETE FROM greenhouse");
+
+        jdbcTemplate.update("""
+        INSERT INTO greenhouse (id, name)
+        VALUES (?, ?)
+        """, "GH-001", "Apartment Mint Greenhouse");
+
+        jdbcTemplate.update("""
+        INSERT INTO device (id, greenhouse_id, name)
+        VALUES (?, ?, ?)
+        """, "ARD-001", "GH-001", "Arduino Controller");
+
+        jdbcTemplate.update("""
+        INSERT INTO sensor (id, device_id, measurement_type, unit)
+        VALUES (?, ?, ?, ?)
+        """, "TEMP-001", "ARD-001", "TEMPERATURE", "CELSIUS");
+    }
+
+    @Test
+    void shouldPersistMeasurementAndUpdateTwinStateAtomically() {
+        Measurement measurement =
+                createMeasurement("MEAS-200", "MSG-200");
+
+        service.persist(measurement);
+
+        Integer measurementCount = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM measurement
+                WHERE message_id = ?
+                """,
+                Integer.class,
+                "MSG-200"
+        );
+
+        Double currentTemperature = jdbcTemplate.queryForObject(
+                """
+                SELECT value
+                FROM twin_state
+                WHERE sensor_id = ?
+                """,
+                Double.class,
+                "TEMP-001"
+        );
+
+        assertThat(measurementCount).isEqualTo(1);
+        assertThat(currentTemperature).isEqualTo(25.4);
+    }
+
+    @Test
+    void shouldPreserveOlderMeasurementWithoutRegressingTwinState() {
+
+        Measurement newer = new Measurement(
+                new MeasurementId("MEAS-201"),
+                new MessageId("MSG-201"),
+                new SensorId("TEMP-001"),
+                MeasurementType.TEMPERATURE,
+                27.0,
+                Unit.CELSIUS,
+                Instant.parse("2026-10-19T10:07:00Z"),
+                Instant.parse("2026-10-19T10:07:01Z")
+        );
+
+        Measurement older = new Measurement(
+                new MeasurementId("MEAS-202"),
+                new MessageId("MSG-202"),
+                new SensorId("TEMP-001"),
+                MeasurementType.TEMPERATURE,
+                25.0,
+                Unit.CELSIUS,
+                Instant.parse("2026-10-19T10:03:00Z"),
+                Instant.parse("2026-10-19T10:08:00Z")
+        );
+
+        service.persist(newer);
+        service.persist(older);
+
+        Integer historyCount = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM measurement
+                WHERE sensor_id = ?
+                """,
+                Integer.class,
+                "TEMP-001"
+        );
+
+        Double currentTemperature = jdbcTemplate.queryForObject(
+                """
+                SELECT value
+                FROM twin_state
+                WHERE sensor_id = ?
+                """,
+                Double.class,
+                "TEMP-001"
+        );
+
+        assertThat(historyCount).isEqualTo(2);
+        assertThat(currentTemperature).isEqualTo(27.0);
+    }
+}
