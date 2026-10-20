@@ -1,71 +1,90 @@
 package com.greenhousedigitaltwin.telemetry.application;
 
+import com.greenhousedigitaltwin.telemetry.application.port.MeasurementInsertResult;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementRepository;
 import com.greenhousedigitaltwin.telemetry.domain.Measurement;
 import com.greenhousedigitaltwin.twin.application.UpdateTwinStateUseCase;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import static com.greenhousedigitaltwin.telemetry.domain.MeasurementTest.createMeasurement;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 public class PersistAcceptedTelemetryServiceTest {
 
+    @Mock
+    MeasurementRepository measurementRepository;
+
+    @InjectMocks
+    PersistAcceptedTelemetryService service;
+
+    @Mock
+    UpdateTwinStateUseCase updateTwinStateUseCase;
+
+
     @Test
-    void shouldPersistMeasurementAndUpdateTwinState(){
-        MeasurementRepository measurementRepository = mock(MeasurementRepository.class);
+    void shouldUpdateTwinWhenMeasurementIsInserted() {
+        Measurement measurement = createMeasurement("MEAS-200", "MSG-200");
 
-        UpdateTwinStateUseCase updateTwinStateUseCase = mock(UpdateTwinStateUseCase.class);
+        when(measurementRepository.insertIfAbsent(measurement))
+                .thenReturn(MeasurementInsertResult.INSERTED);
 
-        PersistAcceptedTelemetryService service =
-                new PersistAcceptedTelemetryService(measurementRepository, updateTwinStateUseCase);
+        TelemetryPersistenceOutcome outcome =
+                service.persist(measurement);
 
-        Measurement measurement = mock(Measurement.class);
+        assertThat(outcome)
+                .isEqualTo(TelemetryPersistenceOutcome.PERSISTED);
 
-        service.persist(measurement);
-
-        var order = inOrder(
+        InOrder order = inOrder(
                 measurementRepository,
                 updateTwinStateUseCase
         );
 
-        order.verify(measurementRepository).save(measurement);
-        order.verify(updateTwinStateUseCase).updateFrom(measurement);
+        order.verify(measurementRepository)
+                .insertIfAbsent(measurement);
+
+        order.verify(updateTwinStateUseCase)
+                .updateFrom(measurement);
     }
 
     @Test
-    void shouldPropagateTwinUpdateFailure(){
-        MeasurementRepository measurementRepository = mock(MeasurementRepository.class);
-        UpdateTwinStateUseCase updateTwinStateUseCase = mock(UpdateTwinStateUseCase.class);
+    void shouldSkipTwinUpdateWhenMessageAlreadyExists() {
+        Measurement measurement = createMeasurement("MEAS-200", "MSG-200");
 
-        PersistAcceptedTelemetryService service =
-                new PersistAcceptedTelemetryService(measurementRepository, updateTwinStateUseCase);
+        when(measurementRepository.insertIfAbsent(measurement))
+                .thenReturn(MeasurementInsertResult.ALREADY_EXISTS);
 
-        Measurement measurement = mock(Measurement.class);
+        TelemetryPersistenceOutcome outcome =
+                service.persist(measurement);
+
+        assertThat(outcome)
+                .isEqualTo(TelemetryPersistenceOutcome.ALREADY_PROCESSED);
+
+        verify(measurementRepository)
+                .insertIfAbsent(measurement);
+
+        verifyNoInteractions(updateTwinStateUseCase);
+    }
+
+    @Test
+    void shouldPropagateTwinUpdateFailure() {
+        Measurement measurement = createMeasurement("MEAS-200", "MSG-200");
+
+        when(measurementRepository.insertIfAbsent(measurement))
+                .thenReturn(MeasurementInsertResult.INSERTED);
 
         when(updateTwinStateUseCase.updateFrom(measurement))
-                .thenThrow(new IllegalStateException("Twin State persistence failed"));
+                .thenThrow(new IllegalStateException("Twin update failed"));
 
         assertThatThrownBy(() -> service.persist(measurement))
                 .isInstanceOf(IllegalStateException.class);
-    }
-
-    @Test
-    void shouldAcceptHistoricalMeasurementWhenTwinIsNotUpdated(){
-        MeasurementRepository measurementRepository = mock(MeasurementRepository.class);
-        UpdateTwinStateUseCase updateTwinStateUseCase = mock(UpdateTwinStateUseCase.class);
-
-        PersistAcceptedTelemetryService service =
-                new PersistAcceptedTelemetryService(measurementRepository, updateTwinStateUseCase);
-
-        Measurement measurement = mock(Measurement.class);
-
-        when(updateTwinStateUseCase.updateFrom(measurement))
-                .thenReturn(false);
-
-        service.persist(measurement);
-
-        verify(measurementRepository).save(measurement);
-        verify(updateTwinStateUseCase).updateFrom(measurement);
     }
 }

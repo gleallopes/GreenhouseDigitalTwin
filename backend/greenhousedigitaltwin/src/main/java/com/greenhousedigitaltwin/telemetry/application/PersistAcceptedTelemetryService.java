@@ -1,5 +1,6 @@
 package com.greenhousedigitaltwin.telemetry.application;
 
+import com.greenhousedigitaltwin.telemetry.application.port.MeasurementInsertResult;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementRepository;
 import com.greenhousedigitaltwin.telemetry.domain.Measurement;
 import com.greenhousedigitaltwin.twin.application.UpdateTwinStateUseCase;
@@ -21,10 +22,15 @@ public class PersistAcceptedTelemetryService {
     }
 
     @Transactional
-    public void persist(Measurement measurement) {
-        measurementRepository.save(measurement);
+    public TelemetryPersistenceOutcome persist(Measurement measurement) {
+        MeasurementInsertResult result = measurementRepository.insertIfAbsent(measurement);
+
+        if (result == MeasurementInsertResult.ALREADY_EXISTS)
+            return TelemetryPersistenceOutcome.ALREADY_PROCESSED;
 
         updateTwinStateUseCase.updateFrom(measurement);
+
+        return TelemetryPersistenceOutcome.PERSISTED;
     }
 
 }
