@@ -4,4 +4,5 @@ import com.greenhousedigitaltwin.telemetry.domain.Measurement;
 
 public interface MeasurementRepository {
     void save(Measurement measurement);
+    MeasurementInsertResult insertIfAbsent(Measurement measurement);
 }
