@@ -10,9 +10,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.*;
 
 import static com.greenhousedigitaltwin.telemetry.domain.MeasurementTest.createMeasurement;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
 @SpringBootTest
@@ -128,5 +131,97 @@ public class PersistAcceptedTelemetryEndToEndIntegrationTest {
 
         assertThat(historyCount).isEqualTo(2);
         assertThat(currentTemperature).isEqualTo(27.0);
+    }
+
+    @Test
+    void shouldProcessConcurrentDuplicateMessagesOnlyOnce()
+            throws Exception {
+
+        Measurement measurement =
+                createMeasurement("MEAS-500", "MSG-500");
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        ExecutorService executor =
+                Executors.newFixedThreadPool(2);
+
+        try {
+            Callable<TelemetryPersistenceOutcome> task = () -> {
+                ready.countDown();
+
+                if (!start.await(10, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException(
+                            "Timed out waiting to start"
+                    );
+                }
+
+                return service.persist(measurement);
+            };
+
+            Future<TelemetryPersistenceOutcome> first =
+                    executor.submit(task);
+
+            Future<TelemetryPersistenceOutcome> second =
+                    executor.submit(task);
+
+            assertThat(ready.await(10, TimeUnit.SECONDS))
+                    .isTrue();
+
+            start.countDown();
+
+            TelemetryPersistenceOutcome firstResult =
+                    first.get(20, TimeUnit.SECONDS);
+
+            TelemetryPersistenceOutcome secondResult =
+                    second.get(20, TimeUnit.SECONDS);
+
+            assertThat(List.of(firstResult, secondResult))
+                    .containsExactlyInAnyOrder(
+                            TelemetryPersistenceOutcome.PERSISTED,
+                            TelemetryPersistenceOutcome.ALREADY_PROCESSED
+                    );
+
+            Integer measurementCount =
+                    jdbcTemplate.queryForObject(
+                            """
+                            SELECT COUNT(*)
+                            FROM measurement
+                            WHERE message_id = ?
+                            """,
+                            Integer.class,
+                            "MSG-500"
+                    );
+
+            Integer twinStateCount =
+                    jdbcTemplate.queryForObject(
+                            """
+                            SELECT COUNT(*)
+                            FROM twin_state
+                            WHERE sensor_id = ?
+                            """,
+                            Integer.class,
+                            "TEMP-001"
+                    );
+
+            Double currentTemperature =
+                    jdbcTemplate.queryForObject(
+                            """
+                            SELECT value
+                            FROM twin_state
+                            WHERE sensor_id = ?
+                            """,
+                            Double.class,
+                            "TEMP-001"
+                    );
+
+            assertThat(measurementCount).isEqualTo(1);
+            assertThat(twinStateCount).isEqualTo(1);
+            assertThat(currentTemperature).isEqualTo(25.4);
+
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
     }
 }
