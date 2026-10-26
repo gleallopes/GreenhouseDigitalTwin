@@ -95,7 +95,7 @@ public final class TelemetryValidator {
             );
         }
 
-        if (!measurementType.supports(unit)){
+        if (measurementType.supports(unit)){
             return TelemetryValidationResult.rejected(
                     TelemetryRejectionReason.INCOMPATIBLE_MEASUREMENT_TYPE
             );

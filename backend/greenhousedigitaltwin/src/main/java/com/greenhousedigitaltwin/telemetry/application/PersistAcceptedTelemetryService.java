@@ -32,5 +32,4 @@ public class PersistAcceptedTelemetryService {
 
         return TelemetryPersistenceOutcome.PERSISTED;
     }
-
 }

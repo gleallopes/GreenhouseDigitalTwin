@@ -11,7 +11,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static com.greenhousedigitaltwin.telemetry.domain.MeasurementTest.createMeasurement;
+import static com.greenhousedigitaltwin.telemetry.CreateMeasurementHelper.createMeasurement;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;

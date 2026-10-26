@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -13,9 +14,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.*;
 
-import static com.greenhousedigitaltwin.telemetry.domain.MeasurementTest.createMeasurement;
+import static com.greenhousedigitaltwin.telemetry.CreateMeasurementHelper.createMeasurement;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
 
 @Testcontainers
 @SpringBootTest
@@ -49,6 +51,7 @@ public class PersistAcceptedTelemetryEndToEndIntegrationTest {
         VALUES (?, ?, ?, ?)
         """, "TEMP-001", "ARD-001", "TEMPERATURE", "CELSIUS");
     }
+
 
     @Test
     void shouldPersistMeasurementAndUpdateTwinStateAtomically() {
@@ -223,5 +226,114 @@ public class PersistAcceptedTelemetryEndToEndIntegrationTest {
             start.countDown();
             executor.shutdownNow();
         }
+    }
+
+    @Test
+    void shouldProcessDifferentMessagesAsIdentityConflict()
+    throws Exception {
+
+        Measurement first =
+                createMeasurement("MEAS-500", "MSG-500");
+
+        Measurement second =
+                createMeasurement("MEAS-500", "MSG-501");
+
+        ExecutorService executor =
+                Executors.newFixedThreadPool(2);
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        try {
+            Callable<TelemetryPersistenceOutcome> firstTask = () -> {
+                ready.countDown();
+                start.await();
+                return service.persist(first);
+            };
+
+            Callable<TelemetryPersistenceOutcome> secondTask = () -> {
+                ready.countDown();
+                start.await();
+                return service.persist(second);
+            };
+
+            Future<TelemetryPersistenceOutcome> firstFuture =
+                    executor.submit(firstTask);
+
+            Future<TelemetryPersistenceOutcome> secondFuture =
+                    executor.submit(secondTask);
+
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+
+            int persisted = 0;
+            int conflicts = 0;
+
+            for (Future<TelemetryPersistenceOutcome> future :
+                    List.of(firstFuture, secondFuture)) {
+                try {
+                    TelemetryPersistenceOutcome outcome =
+                            future.get(10, TimeUnit.SECONDS);
+
+                    if (outcome == TelemetryPersistenceOutcome.PERSISTED) {
+                        persisted++;
+                    }
+
+                } catch (ExecutionException exception) {
+
+                    assertInstanceOf(
+                            InvalidDataAccessApiUsageException.class,
+                            exception.getCause()
+                    );
+
+                    conflicts++;
+                }
+            }
+
+            assertEquals(1, persisted);
+            assertEquals(1, conflicts);
+
+            Integer measurementCount =
+                    jdbcTemplate.queryForObject(
+                            """
+                            SELECT COUNT(*)
+                            FROM measurement
+                            WHERE measurement_id = ?
+                            """,
+                            Integer.class,
+                            "MEAS-500"
+                    );
+
+            Integer twinStateCount =
+                    jdbcTemplate.queryForObject(
+                            """
+                            SELECT COUNT(*)
+                            FROM twin_state
+                            WHERE sensor_id = ?
+                            """,
+                            Integer.class,
+                            "TEMP-001"
+                    );
+
+            Double currentTemperature =
+                    jdbcTemplate.queryForObject(
+                            """
+                            SELECT value
+                            FROM twin_state
+                            WHERE sensor_id = ?
+                            """,
+                            Double.class,
+                            "TEMP-001"
+                    );
+
+            assertThat(measurementCount).isEqualTo(1);
+            assertThat(twinStateCount).isEqualTo(1);
+            assertThat(currentTemperature).isEqualTo(25.4);
+
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
+
     }
 }

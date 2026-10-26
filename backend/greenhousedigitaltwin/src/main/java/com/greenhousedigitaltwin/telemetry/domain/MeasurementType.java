@@ -11,6 +11,6 @@ public enum MeasurementType {
     }
 
     public boolean supports(Unit unit) {
-        return this.unit == unit;
+        return this.unit != unit;
     }
 }

@@ -46,7 +46,7 @@ public class PostgresMeasurementRepository implements MeasurementRepository {
                             received_at
                         )
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT (message_id) DO NOTHING
+                        ON CONFLICT DO NOTHING
                         """,
                 measurement.id().value(),
                 measurement.messageId().value(),
@@ -58,8 +58,33 @@ public class PostgresMeasurementRepository implements MeasurementRepository {
                 Timestamp.from(measurement.receivedAt())
         );
 
-        return affectedRows == 1
-                ? MeasurementInsertResult.INSERTED
-                : MeasurementInsertResult.ALREADY_EXISTS;
+        if (affectedRows == 1) {
+            return MeasurementInsertResult.INSERTED;
+        }
+
+        Boolean sameMeasurement = jdbcTemplate.queryForObject(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM measurement
+                    WHERE message_id = ?
+                      AND measurement_id = ?
+                      AND value = ?
+                )
+                """,
+                Boolean.class,
+                measurement.messageId().value(),
+                measurement.id().value(),
+                measurement.value()
+        );
+
+        if (Boolean.TRUE.equals(sameMeasurement)) {
+            return MeasurementInsertResult.ALREADY_EXISTS;
+        }
+
+        throw new IllegalStateException(
+                "Measurement identity conflict"
+        );
+
     }
 }

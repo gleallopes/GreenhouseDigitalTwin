@@ -8,15 +8,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.PreparedStatementCallback;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-import static com.greenhousedigitaltwin.telemetry.domain.MeasurementTest.createMeasurement;
+import static com.greenhousedigitaltwin.telemetry.CreateMeasurementHelper.createMeasurement;
+import static com.greenhousedigitaltwin.telemetry.CreateMeasurementHelper.createMeasurementWithValue;
 import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Testcontainers
 @SpringBootTest
@@ -93,8 +95,15 @@ public class PostgresMeasurementIdempotencyIntegrationTest {
         Measurement measurement = createMeasurement("MEAS-301", "MSG-301");
         Measurement duplicate = createMeasurement("MEAS-302", "MSG-301");
 
-        MeasurementInsertResult firstResult = measurementRepository.insertIfAbsent(measurement);
-        MeasurementInsertResult secondResult = measurementRepository.insertIfAbsent(duplicate);
+        assertEquals(
+                MeasurementInsertResult.INSERTED,
+                measurementRepository.insertIfAbsent(measurement)
+        );
+
+        assertThrows(
+                InvalidDataAccessApiUsageException.class,
+                () -> measurementRepository.insertIfAbsent(duplicate)
+        );
 
 
         Integer count = jdbcTemplate.queryForObject(
@@ -107,8 +116,6 @@ public class PostgresMeasurementIdempotencyIntegrationTest {
                 "MSG-301"
         );
 
-        assertThat(firstResult).isEqualTo(MeasurementInsertResult.INSERTED);
-        assertThat(secondResult).isEqualTo(MeasurementInsertResult.ALREADY_EXISTS);
         assertThat(count).isEqualTo(1);
 
     }
@@ -125,7 +132,7 @@ public class PostgresMeasurementIdempotencyIntegrationTest {
 
         assertThatThrownBy(
                 () -> measurementRepository.insertIfAbsent(conflicting)
-        ).isInstanceOf(DataIntegrityViolationException.class);
+        ).isInstanceOf(InvalidDataAccessApiUsageException.class);
 
         Integer count = jdbcTemplate.queryForObject(
                 """
@@ -138,5 +145,28 @@ public class PostgresMeasurementIdempotencyIntegrationTest {
         );
 
         assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectSameMessageIdWithDifferentValue() {
+        Measurement original =
+                createMeasurementWithValue(
+                        "MEAS-301", "MSG-301", 25.0
+                );
+
+        Measurement conflicting =
+                createMeasurementWithValue(
+                        "MEAS-301", "MSG-301", 35.0
+                );
+
+        assertEquals(
+                MeasurementInsertResult.INSERTED,
+                measurementRepository.insertIfAbsent(original)
+        );
+
+        assertThrows(
+                InvalidDataAccessApiUsageException.class,
+                () -> measurementRepository.insertIfAbsent(conflicting)
+        );
     }
 }

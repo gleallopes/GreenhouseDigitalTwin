@@ -24,7 +24,7 @@ public record Measurement(MeasurementId id, MessageId messageId, SensorId sensor
             throw new IllegalArgumentException("Measurement value must be finite");
         }
 
-        if (!type.supports(unit)) {
+        if (type.supports(unit)) {
             throw new IllegalArgumentException(
                     "Unit " + unit + " is not valid for measurement type " + type
             );
