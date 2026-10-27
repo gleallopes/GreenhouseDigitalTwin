@@ -1,12 +1,15 @@
 package com.greenhousedigitaltwin.telemetry.infrastructure.persistence;
 
+import com.greenhousedigitaltwin.greenhouse.domain.SensorId;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementInsertResult;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementRepository;
-import com.greenhousedigitaltwin.telemetry.domain.Measurement;
+import com.greenhousedigitaltwin.telemetry.domain.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
+import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class PostgresMeasurementRepository implements MeasurementRepository {
@@ -69,22 +72,67 @@ public class PostgresMeasurementRepository implements MeasurementRepository {
                     FROM measurement
                     WHERE message_id = ?
                       AND measurement_id = ?
-                      AND value = ?
                 )
                 """,
                 Boolean.class,
                 measurement.messageId().value(),
-                measurement.id().value(),
-                measurement.value()
+                measurement.id().value()
         );
 
-        if (Boolean.TRUE.equals(sameMeasurement)) {
+        Measurement existing = findByMessageId(measurement.messageId());
+
+        if (existing != null && existing.sameEventAs(measurement)) {
             return MeasurementInsertResult.ALREADY_EXISTS;
         }
 
-        throw new IllegalStateException(
+        throw new TelemetryIdentityConflictException(
                 "Measurement identity conflict"
         );
 
+    }
+
+    private Measurement findByMessageId(
+            MessageId messageId
+    ) {
+        List<Measurement> measurements = jdbcTemplate.query(
+                """
+                SELECT
+                    measurement_id,
+                    message_id,
+                    sensor_id,
+                    measurement_type,
+                    value,
+                    unit,
+                    measured_at,
+                    received_at
+                FROM measurement
+                WHERE message_id = ?
+                """,
+                (rs, rowNum) -> new Measurement(
+                        new MeasurementId(
+                                rs.getString("measurement_id")
+                        ),
+                        new MessageId(
+                                rs.getString("message_id")
+                        ),
+                        new SensorId(
+                                rs.getString("sensor_id")
+                        ),
+                        MeasurementType.valueOf(
+                                rs.getString("measurement_type")
+                        ),
+                        rs.getDouble("value"),
+                        Unit.valueOf(
+                                rs.getString("unit")
+                        ),
+                        rs.getTimestamp("measured_at")
+                                .toInstant(),
+                        rs.getTimestamp("received_at")
+                                .toInstant()
+                ),
+                messageId.value()
+        );
+
+        return measurements.stream().findFirst().orElse(null);
     }
 }
