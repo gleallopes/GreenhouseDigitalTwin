@@ -282,7 +282,7 @@ public class PersistAcceptedTelemetryEndToEndIntegrationTest {
                 } catch (ExecutionException exception) {
 
                     assertInstanceOf(
-                            InvalidDataAccessApiUsageException.class,
+                            TelemetryIdentityConflictException.class,
                             exception.getCause()
                     );
 

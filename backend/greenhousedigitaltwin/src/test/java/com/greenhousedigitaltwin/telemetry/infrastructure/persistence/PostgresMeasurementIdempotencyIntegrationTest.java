@@ -3,6 +3,7 @@ package com.greenhousedigitaltwin.telemetry.infrastructure.persistence;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementInsertResult;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementRepository;
 import com.greenhousedigitaltwin.telemetry.domain.Measurement;
+import com.greenhousedigitaltwin.telemetry.domain.TelemetryIdentityConflictException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -101,7 +102,7 @@ public class PostgresMeasurementIdempotencyIntegrationTest {
         );
 
         assertThrows(
-                InvalidDataAccessApiUsageException.class,
+                TelemetryIdentityConflictException.class,
                 () -> measurementRepository.insertIfAbsent(duplicate)
         );
 
@@ -132,7 +133,7 @@ public class PostgresMeasurementIdempotencyIntegrationTest {
 
         assertThatThrownBy(
                 () -> measurementRepository.insertIfAbsent(conflicting)
-        ).isInstanceOf(InvalidDataAccessApiUsageException.class);
+        ).isInstanceOf(TelemetryIdentityConflictException.class);
 
         Integer count = jdbcTemplate.queryForObject(
                 """
@@ -165,7 +166,68 @@ public class PostgresMeasurementIdempotencyIntegrationTest {
         );
 
         assertThrows(
-                InvalidDataAccessApiUsageException.class,
+                TelemetryIdentityConflictException.class,
+                () -> measurementRepository.insertIfAbsent(conflicting)
+        );
+    }
+
+    @Test
+    void shouldAcknowledgeIdenticalRetry() {
+        Measurement original =
+                createMeasurement("MEAS-301", "MSG-301");
+
+        Measurement retry =
+                createMeasurement("MEAS-301", "MSG-301");
+
+        assertEquals(
+                MeasurementInsertResult.INSERTED,
+                measurementRepository.insertIfAbsent(original)
+        );
+
+        assertEquals(
+                MeasurementInsertResult.ALREADY_EXISTS,
+                measurementRepository.insertIfAbsent(retry)
+        );
+    }
+
+    @Test
+    void shouldRejectConflictingTemperature() {
+        Measurement original =
+                createMeasurementWithValue(
+                        "MEAS-302", "MSG-302", 25.0
+                );
+
+        Measurement conflicting =
+                createMeasurementWithValue(
+                        "MEAS-302", "MSG-302", 35.0
+                );
+
+        assertEquals(
+                MeasurementInsertResult.INSERTED,
+                measurementRepository.insertIfAbsent(original)
+        );
+
+        assertThrows(
+                TelemetryIdentityConflictException.class,
+                () -> measurementRepository.insertIfAbsent(conflicting)
+        );
+    }
+
+    @Test
+    void shouldRejectConflictingMeasurementIdentity() {
+        Measurement original =
+                createMeasurement("MEAS-303", "MSG-303");
+
+        Measurement conflicting =
+                createMeasurement("MEAS-304", "MSG-303");
+
+        assertEquals(
+                MeasurementInsertResult.INSERTED,
+                measurementRepository.insertIfAbsent(original)
+        );
+
+        assertThrows(
+                TelemetryIdentityConflictException.class,
                 () -> measurementRepository.insertIfAbsent(conflicting)
         );
     }

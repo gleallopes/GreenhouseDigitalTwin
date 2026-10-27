@@ -32,4 +32,18 @@ public record Measurement(MeasurementId id, MessageId messageId, SensorId sensor
 
         this.value = value;
     }
+
+    public boolean sameEventAs(Measurement other) {
+        if (other == null) {
+            return false;
+        }
+
+        return id.equals(other.id())
+                && messageId.equals(other.messageId())
+                && sensorId.equals(other.sensorId())
+                && type.equals(other.type())
+                && Double.compare(value, other.value()) == 0
+                && unit.equals(other.unit())
+                && measuredAt.equals(other.measuredAt());
+    }
 }
