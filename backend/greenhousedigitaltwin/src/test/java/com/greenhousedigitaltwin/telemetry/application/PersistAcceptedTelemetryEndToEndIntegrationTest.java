@@ -2,22 +2,25 @@ package com.greenhousedigitaltwin.telemetry.application;
 
 import com.greenhousedigitaltwin.greenhouse.domain.SensorId;
 import com.greenhousedigitaltwin.telemetry.domain.*;
+import com.greenhousedigitaltwin.twin.application.UpdateTwinStateUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.greenhousedigitaltwin.telemetry.CreateMeasurementHelper.createMeasurement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 
 @Testcontainers
 @SpringBootTest

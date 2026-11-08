@@ -2,13 +2,14 @@ package com.greenhousedigitaltwin.telemetry.application;
 
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementInsertResult;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementRepository;
+import com.greenhousedigitaltwin.telemetry.application.port.PersistAcceptedTelemetryUseCase;
 import com.greenhousedigitaltwin.telemetry.domain.Measurement;
 import com.greenhousedigitaltwin.twin.application.UpdateTwinStateUseCase;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 @Service
-public class PersistAcceptedTelemetryService {
+public class PersistAcceptedTelemetryService implements PersistAcceptedTelemetryUseCase {
 
     private final MeasurementRepository measurementRepository;
     private final UpdateTwinStateUseCase updateTwinStateUseCase;

@@ -4,7 +4,6 @@ import com.greenhousedigitaltwin.telemetry.application.port.MeasurementPlausibil
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceRegistry;
 
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceValidationResult;
-import com.greenhousedigitaltwin.telemetry.application.port.TelemetryMessageRegistry;
 import com.greenhousedigitaltwin.telemetry.domain.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,17 +14,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class TelemetryValidatorTest {
 
     @Mock
     private MeasurementSourceRegistry sourceRegistry;
-
-    @Mock
-    private TelemetryMessageRegistry messageRegistry;
 
     @Mock
     private MeasurementPlausibilityValidator plausibilityValidator;
@@ -36,7 +32,6 @@ public class TelemetryValidatorTest {
     void setUp() {
         validator = new TelemetryValidator(
                 sourceRegistry,
-                messageRegistry,
                 plausibilityValidator
         );
     }
@@ -305,8 +300,6 @@ public class TelemetryValidatorTest {
                 MeasurementType.TEMPERATURE
         )).thenReturn(MeasurementSourceValidationResult.VALID);
 
-        when(messageRegistry.exists("MSG-001"))
-                .thenReturn(false);
 
         when(plausibilityValidator.isPlausible(
                 MeasurementType.TEMPERATURE,
@@ -318,22 +311,43 @@ public class TelemetryValidatorTest {
     }
 
     @Test
-    void shouldRejectDuplicateTelemetryMessage(){
-//        source from MOCK
-        when(sourceRegistry.validateSource(
+    void shouldAcceptValidTelemetryWithoutCheckingDuplicateStatus() {
+        TelemetryMessage message = new TelemetryMessage(
+                "MSG-001",
                 "ARD-001",
-                new SensorId("TEMP-001"),
-                MeasurementType.TEMPERATURE
+                "TEMP-001",
+                "TEMPERATURE",
+                25.4,
+                "CELSIUS",
+                Instant.parse("2026-11-06T14:00:00Z")
+        );
+
+        when(sourceRegistry.validateSource(
+                eq("ARD-001"),
+                eq(new SensorId("TEMP-001")),
+                eq(MeasurementType.TEMPERATURE)
         )).thenReturn(MeasurementSourceValidationResult.VALID);
 
-        when(messageRegistry.exists("MSG-001"))
-                .thenReturn(true);
+        when(plausibilityValidator.isPlausible(
+                MeasurementType.TEMPERATURE,
+                25.4
+        )).thenReturn(true);
 
-        var result = validator.validate(validMessage());
-        assertFalse(result.valid());
-        assertEquals(
-                TelemetryRejectionReason.DUPLICATE_MESSAGE,
-                result.rejectionReason()
+        TelemetryValidationResult result =
+                validator.validate(message);
+
+        assertTrue(result.valid());
+        assertNull(result.rejectionReason());
+
+        verify(sourceRegistry).validateSource(
+                eq("ARD-001"),
+                eq(new SensorId("TEMP-001")),
+                eq(MeasurementType.TEMPERATURE)
+        );
+
+        verify(plausibilityValidator).isPlausible(
+                MeasurementType.TEMPERATURE,
+                25.4
         );
     }
 
@@ -374,9 +388,6 @@ public class TelemetryValidatorTest {
                 MeasurementType.TEMPERATURE
         )).thenReturn(MeasurementSourceValidationResult.VALID);
 
-        when(messageRegistry.exists("MSG-001"))
-                .thenReturn(false);
-
         when(plausibilityValidator.isPlausible(
                 MeasurementType.TEMPERATURE,
                 -999.0
@@ -390,24 +401,32 @@ public class TelemetryValidatorTest {
     }
 
     @Test
-    void shouldRejectDuplicateMessageBeforeReachPlausibility(){
-        var message = validMessage();
+    void shouldRejectUnknownSensorBeforePlausibilityValidation() {
+        TelemetryMessage message = new TelemetryMessage(
+                "MSG-002",
+                "ARD-001",
+                "TEMP-999",
+                "TEMPERATURE",
+                25.4,
+                "CELSIUS",
+                Instant.parse("2026-11-06T14:00:00Z")
+        );
 
         when(sourceRegistry.validateSource(
-                "ARD-001",
-                new SensorId("TEMP-001"),
-                MeasurementType.TEMPERATURE
-        )).thenReturn(MeasurementSourceValidationResult.VALID);
+                eq("ARD-001"),
+                eq(new SensorId("TEMP-999")),
+                eq(MeasurementType.TEMPERATURE)
+        )).thenReturn(
+                MeasurementSourceValidationResult.UNKNOWN_SENSOR
+        );
 
-        when(messageRegistry.exists("MSG-001"))
-                .thenReturn(true);
-
-        var result = validator.validate(message);
+        TelemetryValidationResult result =
+                validator.validate(message);
 
         assertFalse(result.valid());
 
         assertEquals(
-                TelemetryRejectionReason.DUPLICATE_MESSAGE,
+                TelemetryRejectionReason.UNKNOWN_SENSOR,
                 result.rejectionReason()
         );
 
