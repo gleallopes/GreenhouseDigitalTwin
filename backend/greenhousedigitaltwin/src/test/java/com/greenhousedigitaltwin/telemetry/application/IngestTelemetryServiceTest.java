@@ -22,10 +22,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/**
- * DT-009: Tests application orchestration without starting Spring or PostgreSQL.
- * Adjust domain imports if your project's packages differ.
- */
 @ExtendWith(MockitoExtension.class)
 class IngestTelemetryServiceTest {
 
