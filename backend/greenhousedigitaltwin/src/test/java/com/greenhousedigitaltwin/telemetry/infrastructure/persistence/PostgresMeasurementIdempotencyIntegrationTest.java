@@ -14,6 +14,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import static com.greenhousedigitaltwin.telemetry.CreateMeasurementHelper.createMeasurement;
 import static com.greenhousedigitaltwin.telemetry.CreateMeasurementHelper.createMeasurementWithValue;
@@ -25,9 +26,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @SpringBootTest
 public class PostgresMeasurementIdempotencyIntegrationTest {
 
+    private static final DockerImageName POSTGRES_IMAGE =
+            DockerImageName.parse("docker.io/library/postgres:17")
+                    .asCompatibleSubstituteFor("postgres");
+
     @Container
     @ServiceConnection
-    static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer("postgres:17");
+    static final PostgreSQLContainer<?> postgres =
+            new PostgreSQLContainer<>(POSTGRES_IMAGE);
 
     @Autowired
     private MeasurementRepository measurementRepository;

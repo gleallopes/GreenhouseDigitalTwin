@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.time.Instant;
 
@@ -22,11 +23,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Testcontainers
 @SpringBootTest
 class PostgresMeasurementRepositoryIntegrationTest {
+    private static final DockerImageName POSTGRES_IMAGE =
+            DockerImageName.parse("docker.io/library/postgres:17")
+                    .asCompatibleSubstituteFor("postgres");
 
     @Container
     @ServiceConnection
-    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17");
-
+    static final PostgreSQLContainer<?> postgres =
+            new PostgreSQLContainer<>(POSTGRES_IMAGE);
     @Autowired
     private SpringDataMeasurementRepository repository;
 
