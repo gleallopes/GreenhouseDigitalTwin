@@ -3,9 +3,9 @@ spring:
     name: greenhousedigitaltwin
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/greenhouse_digital_twin
-    username: greenhouse
-    password: greenhouse
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/greenhouse_digital_twin}
+    username: ${DB_USERNAME:greenhouse}
+    password: ${DB_PASSWORD}
 
   jpa:
     hibernate:
