@@ -1,4 +1,5 @@
 desktop.ini
+.envrc
 .env
 .env.*
 !.env.example
