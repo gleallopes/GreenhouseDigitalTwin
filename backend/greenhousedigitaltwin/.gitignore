@@ -38,6 +38,7 @@ build/
 
 # Environment / secrets
 .env
+.envrc
 .env.*
 !.env.example
 

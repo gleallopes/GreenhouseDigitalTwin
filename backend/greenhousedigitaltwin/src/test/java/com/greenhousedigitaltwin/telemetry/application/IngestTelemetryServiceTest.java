@@ -1,5 +1,7 @@
 package com.greenhousedigitaltwin.telemetry.application;
 
+import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceRegistry;
+import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceValidationResult;
 import com.greenhousedigitaltwin.telemetry.application.port.PersistAcceptedTelemetryUseCase;
 import com.greenhousedigitaltwin.telemetry.domain.Measurement;
 import com.greenhousedigitaltwin.telemetry.domain.MeasurementId;
@@ -13,11 +15,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -36,6 +41,28 @@ class IngestTelemetryServiceTest {
 
     @InjectMocks
     private IngestTelemetryService service;
+
+    @Test
+    void shouldConstructMeasurementUsingTheSameEnumParsingAsValidation() {
+        Instant measuredAt = Instant.parse("2026-11-19T12:00:00Z");
+        Instant receivedAt = measuredAt.plusSeconds(1);
+        SensorId sensorId = new SensorId("sensor");
+        MeasurementSourceRegistry registry = mock(MeasurementSourceRegistry.class);
+        when(registry.validateSource("device", sensorId, MeasurementType.TEMPERATURE))
+                .thenReturn(MeasurementSourceValidationResult.VALID);
+        var ingestion = new IngestTelemetryService(
+                new TelemetryMeasurementFactory(Clock.fixed(receivedAt, ZoneOffset.UTC)),
+                new TelemetryValidator(registry, (type, value) -> true),
+                persistence
+        );
+        var expected = new Measurement(new MeasurementId("measurement"), new MessageId("message"),
+                sensorId, MeasurementType.TEMPERATURE, 25.0, Unit.CELSIUS, measuredAt, receivedAt);
+        when(persistence.persist(expected)).thenReturn(TelemetryPersistenceOutcome.PERSISTED);
+
+        assertEquals(TelemetryIngestionOutcome.PERSISTED, ingestion.ingest(new IngestTelemetryCommand(
+                "measurement", "message", "device", "sensor", " temperature ", 25.0, " celsius ", measuredAt)));
+        verify(persistence).persist(expected);
+    }
 
     @Test
     void shouldIngestValidTelemetry() {

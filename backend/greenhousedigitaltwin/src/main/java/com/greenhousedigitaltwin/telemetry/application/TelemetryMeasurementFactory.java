@@ -20,9 +20,9 @@ public class TelemetryMeasurementFactory {
                 new MeasurementId(command.measurementId()),
                 new MessageId(command.messageId()),
                 new SensorId(command.sensorId()),
-                MeasurementType.valueOf(command.measurementType()),
+                TelemetryEnumParser.parse(MeasurementType.class, command.measurementType()),
                 command.value(),
-                Unit.valueOf(command.unit()),
+                TelemetryEnumParser.parse(Unit.class, command.unit()),
                 command.measuredAt(),
                 clock.instant()
         );

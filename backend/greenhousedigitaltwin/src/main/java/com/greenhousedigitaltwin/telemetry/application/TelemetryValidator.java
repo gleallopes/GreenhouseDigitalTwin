@@ -7,8 +7,6 @@ import com.greenhousedigitaltwin.telemetry.domain.MeasurementType;
 import com.greenhousedigitaltwin.telemetry.domain.Unit;
 import org.springframework.stereotype.Component;
 
-import java.util.Locale;
-
 @Component
 public final class TelemetryValidator {
 
@@ -50,14 +48,14 @@ public final class TelemetryValidator {
         }
 
         // Semantic validation
-        MeasurementType measurementType = parseMeasurementType(message.measurementType());
+        MeasurementType measurementType = TelemetryEnumParser.parse(MeasurementType.class, message.measurementType());
         if (measurementType == null) {
             return TelemetryValidationResult.rejected(
                     TelemetryRejectionReason.SEMANTIC_ERROR
             );
         }
 
-        Unit unit = parseUnit(message.unit());
+        Unit unit = TelemetryEnumParser.parse(Unit.class, message.unit());
         if (unit == null) {
             return TelemetryValidationResult.rejected(
                     TelemetryRejectionReason.SEMANTIC_ERROR
@@ -115,21 +113,5 @@ public final class TelemetryValidator {
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
-    }
-
-    private MeasurementType parseMeasurementType(String value) {
-        try {
-            return MeasurementType.valueOf(value.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
-
-    private Unit parseUnit(String value) {
-        try {
-            return Unit.valueOf(value.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
     }
 }
