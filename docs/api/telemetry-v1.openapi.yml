@@ -56,7 +56,9 @@ paths:
                 code: INVALID_REQUEST
                 message: Request does not match the telemetry contract.
         '406':
-          description: The requested response media type is unavailable.
+          description: |
+            No response media type matches the Accept header. Only the status is guaranteed.
+            The response body is unspecified.
         '409':
           description: A measurement or message identity conflicts with an existing event.
           content:
@@ -76,7 +78,9 @@ paths:
                 code: PAYLOAD_TOO_LARGE
                 message: Telemetry request body exceeds 4096 bytes.
         '415':
-          description: The request media type is unsupported. Send application/json.
+          description: |
+            The request media type is unsupported. Send application/json.
+            Only the status is guaranteed. The response body is unspecified.
         '422':
           description: The application rejected the measurement.
           content:

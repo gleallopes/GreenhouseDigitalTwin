@@ -129,9 +129,17 @@ class TelemetryControllerTest {
     }
 
     @Test
-    void preservesUnsupportedMediaType() throws Exception {
+    void rejectsUnsupportedContentTypeBeforeDelegating() throws Exception {
         mvc.perform(post("/api/v1/telemetry").contentType(MediaType.TEXT_PLAIN).content(REQUEST))
                 .andExpect(status().isUnsupportedMediaType());
+        verifyNoInteractions(ingestion);
+    }
+
+    @Test
+    void rejectsUnsupportedAcceptBeforeDelegating() throws Exception {
+        mvc.perform(post("/api/v1/telemetry").contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_PLAIN).content(REQUEST))
+                .andExpect(status().isNotAcceptable());
         verifyNoInteractions(ingestion);
     }
 
