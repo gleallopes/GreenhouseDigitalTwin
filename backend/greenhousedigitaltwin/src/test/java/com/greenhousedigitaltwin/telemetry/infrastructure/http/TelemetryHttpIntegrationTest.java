@@ -13,12 +13,14 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Map;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -75,6 +77,24 @@ class TelemetryHttpIntegrationTest {
     }
 
     @Test
+    void enforcesBodyLimitInBytesBeforeWritingTelemetry() throws Exception {
+        byte[] atLimit = paddedTelemetry("é1", 25, CURRENT, 4096);
+        assertResponse(submit(HttpRequest.BodyPublishers.ofByteArray(atLimit)), 201, "PERSISTED");
+        assertThat(historySize()).isEqualTo(1);
+        Map<String, Object> originalState = jdbc.queryForMap("SELECT * FROM twin_state");
+        assertThat(originalState).containsEntry("value", 25.0);
+
+        byte[] overLimit = paddedTelemetry("é2", 26, "2026-11-19T12:00:01Z", 4097);
+        HttpRequest.BodyPublisher stream =
+                HttpRequest.BodyPublishers.ofInputStream(() -> new ByteArrayInputStream(overLimit));
+        assertThat(stream.contentLength()).isEqualTo(-1);
+        assertResponse(submit(stream), 413, "PAYLOAD_TOO_LARGE");
+
+        assertThat(historySize()).isEqualTo(1);
+        assertThat(jdbc.queryForMap("SELECT * FROM twin_state")).isEqualTo(originalState);
+    }
+
+    @Test
     void rejectsInvalidSourceUnitAndPhysicalValueWithoutWriting() throws Exception {
         String valid = telemetry("1", 25, CURRENT);
         assertResponse(submit(valid.replace("\"sensor\"", "\"unknown\"")), 422, "UNKNOWN_SENSOR");
@@ -113,10 +133,19 @@ class TelemetryHttpIntegrationTest {
                 """.formatted(id, id, value, measuredAt);
     }
 
+    private byte[] paddedTelemetry(String id, int value, String measuredAt, int bytes) {
+        String json = telemetry(id, value, measuredAt);
+        return (json + " ".repeat(bytes - json.getBytes(UTF_8).length)).getBytes(UTF_8);
+    }
+
     private HttpResponse<String> submit(String json) throws Exception {
+        return submit(HttpRequest.BodyPublishers.ofString(json));
+    }
+
+    private HttpResponse<String> submit(HttpRequest.BodyPublisher body) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/telemetry"))
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(json))
+                .POST(body)
                 .build();
         try (HttpClient client = HttpClient.newHttpClient()) {
             return client.send(request, HttpResponse.BodyHandlers.ofString());

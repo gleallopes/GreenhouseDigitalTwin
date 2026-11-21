@@ -1,0 +1,158 @@
+openapi: 3.0.3
+info:
+  title: GreenhouseDigitalTwin Telemetry API
+  version: 1.0.0
+  description: |
+    The /api/v1 prefix identifies the major HTTP contract version.
+    Backward-compatible changes stay in v1. Breaking changes require a new major path.
+paths:
+  /api/v1/telemetry:
+    post:
+      operationId: ingestTelemetry
+      summary: Ingest a sensor measurement
+      description: |
+        Send a JSON body of at most 4096 bytes, including whitespace.
+        Use measurement and message identifiers consistently when retrying.
+        Historical measurements can be stored without updating the current twin state.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryRequest'
+            example:
+              measurementId: measurement-1
+              messageId: message-1
+              deviceId: device-1
+              sensorId: sensor-1
+              measurementType: TEMPERATURE
+              value: 23.5
+              unit: CELSIUS
+              measuredAt: '2026-11-19T12:00:00.123456Z'
+      responses:
+        '200':
+          description: Identical retry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryResponse'
+              example:
+                outcome: ALREADY_PROCESSED
+        '201':
+          description: New historical measurement was stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryResponse'
+              example:
+                outcome: PERSISTED
+        '400':
+          description: Malformed JSON or invalid request fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryError'
+              example:
+                code: INVALID_REQUEST
+                message: Request does not match the telemetry contract.
+        '406':
+          description: |
+            No response media type matches the Accept header. Only the status is guaranteed.
+            The response body is unspecified.
+        '409':
+          description: A measurement or message identity conflicts with an existing event.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryError'
+              example:
+                code: IDENTITY_CONFLICT
+                message: Telemetry identity conflicts with an existing event.
+        '413':
+          description: Telemetry JSON body exceeds 4096 bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryError'
+              example:
+                code: PAYLOAD_TOO_LARGE
+                message: Telemetry request body exceeds 4096 bytes.
+        '415':
+          description: |
+            The request media type is unsupported. Send application/json.
+            Only the status is guaranteed. The response body is unspecified.
+        '422':
+          description: The application rejected the measurement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryError'
+              example:
+                code: PHYSICAL_VALUE_OUT_OF_RANGE
+                message: Telemetry failed validation.
+        '500':
+          description: An unexpected telemetry ingestion failure occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryError'
+              example:
+                code: INTERNAL_ERROR
+                message: Telemetry ingestion failed.
+components:
+  schemas:
+    TelemetryRequest:
+      type: object
+      description: Identifiers must contain a non-whitespace character.
+      required: [measurementId, messageId, deviceId, sensorId, measurementType, value, unit, measuredAt]
+      properties:
+        measurementId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        messageId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        deviceId:
+          type: string
+          minLength: 1
+          maxLength: 50
+        sensorId:
+          type: string
+          minLength: 1
+          maxLength: 50
+        measurementType:
+          type: string
+          enum: [TEMPERATURE, HUMIDITY, LUMINOSITY]
+          description: Canonical values. The server trims whitespace and accepts case variants.
+        value:
+          type: number
+          format: double
+        unit:
+          type: string
+          enum: [CELSIUS, PERCENT, LUX]
+          description: |
+            Use CELSIUS for temperature, PERCENT for humidity, and LUX for luminosity.
+            The server trims whitespace and accepts case variants.
+        measuredAt:
+          type: string
+          format: date-time
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$'
+    TelemetryResponse:
+      type: object
+      required: [outcome]
+      properties:
+        outcome:
+          type: string
+          enum: [PERSISTED, ALREADY_PROCESSED]
+    TelemetryError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable explanation.

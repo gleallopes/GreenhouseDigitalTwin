@@ -43,7 +43,7 @@ class TelemetryControllerTest {
     @BeforeEach
     void setUp() {
         mvc = MockMvcBuilders.standaloneSetup(new TelemetryController(ingestion))
-                .setControllerAdvice(new TelemetryExceptionHandler())
+                .setControllerAdvice(new TelemetryExceptionHandler(), new TelemetryRequestBodyAdvice())
                 .build();
     }
 
@@ -79,6 +79,29 @@ class TelemetryControllerTest {
         verifyNoInteractions(ingestion);
     }
 
+    @ParameterizedTest
+    @CsvSource({"true", "false"})
+    void rejectsOversizedBodyBeforeDelegating(boolean declareLength) throws Exception {
+        String body = REQUEST + " ".repeat(TelemetryRequestBodyAdvice.MAX_BODY_BYTES + 1 - REQUEST.length());
+        var request = post("/api/v1/telemetry").contentType(MediaType.APPLICATION_JSON).content(body);
+        if (declareLength) {
+            request.header("Content-Length", body.length());
+        }
+
+        mvc.perform(request)
+                .andExpect(status().is(413))
+                .andExpect(jsonPath("$.code").value("PAYLOAD_TOO_LARGE"));
+        verifyNoInteractions(ingestion);
+    }
+
+    @Test
+    void acceptsBodyAtLimit() throws Exception {
+        when(ingestion.ingest(any())).thenReturn(TelemetryIngestionOutcome.PERSISTED);
+        submit(REQUEST + " ".repeat(TelemetryRequestBodyAdvice.MAX_BODY_BYTES - REQUEST.length()))
+                .andExpect(status().isCreated());
+        verify(ingestion).ingest(any());
+    }
+
     @Test
     void mapsValidationRejection() throws Exception {
         when(ingestion.ingest(any())).thenThrow(
@@ -106,9 +129,17 @@ class TelemetryControllerTest {
     }
 
     @Test
-    void preservesUnsupportedMediaType() throws Exception {
+    void rejectsUnsupportedContentTypeBeforeDelegating() throws Exception {
         mvc.perform(post("/api/v1/telemetry").contentType(MediaType.TEXT_PLAIN).content(REQUEST))
                 .andExpect(status().isUnsupportedMediaType());
+        verifyNoInteractions(ingestion);
+    }
+
+    @Test
+    void rejectsUnsupportedAcceptBeforeDelegating() throws Exception {
+        mvc.perform(post("/api/v1/telemetry").contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_PLAIN).content(REQUEST))
+                .andExpect(status().isNotAcceptable());
         verifyNoInteractions(ingestion);
     }
 
