@@ -36,6 +36,12 @@ public class TelemetryExceptionHandler extends ResponseEntityExceptionHandler {
         return invalidRequest();
     }
 
+    @ExceptionHandler(TelemetryRequestBodyAdvice.PayloadTooLargeException.class)
+    ResponseEntity<Object> payloadTooLarge() {
+        return error(HttpStatus.valueOf(413), "PAYLOAD_TOO_LARGE",
+                "Telemetry request body exceeds " + TelemetryRequestBodyAdvice.MAX_BODY_BYTES + " bytes.");
+    }
+
     @ExceptionHandler(DateTimeParseException.class)
     ResponseEntity<Object> invalidTimestamp() {
         return invalidRequest();
