@@ -175,6 +175,16 @@ Build a **digital twin for a tabletop, apartment-scale mint greenhouse**, linkin
 
 **Proposed scope:** Mosquitto subscription, message decoding, mapping to `IngestTelemetryCommand`, acknowledgment/retry semantics, malformed-message handling and integration tests.
 
+**DT-012.2 foundation:** The [DT-003 contract](../02-architecture/communication.md#5-telemetry-payload)
+now includes explicit measurement identity, cross-transport retries, topic-to-device
+source consistency, and the MQTT session and acknowledgment profile.
+
+**DT-012 implementation:** The opt-in Paho subscriber, PostgreSQL-backed
+source check, and shared ingestion path are covered by real Mosquitto and
+PostgreSQL integration tests. See the [local MQTT guide](../../README.md#local-mqtt-telemetry)
+for configuration and verification. Broker restart persistence and deployment
+security hardening are deferred.
+
 **Acceptance direction:** A published valid MQTT telemetry message reaches the same application use case and produces correct database/twin state; retries remain idempotent.
 
 ### DT-013 — Physical Arduino sensor prototype

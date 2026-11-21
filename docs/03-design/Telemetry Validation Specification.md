@@ -27,8 +27,7 @@ The following validation responsibilities are included:
 1. Structural validation
 2. Semantic validation
 3. Source validation
-4. Duplicate message detection
-5. Physical plausibility validation
+4. Physical plausibility validation
 
 This specification does **not** define:
 
@@ -46,9 +45,10 @@ These responsibilities belong to other parts of the system.
 
 ## 3. Telemetry Contract
 
-The initial telemetry message contains:
+The telemetry wire message contains:
 
 ```text
+measurementId
 messageId
 deviceId
 sensorId
@@ -62,6 +62,7 @@ Example:
 
 ```json
 {
+  "measurementId": "MEAS-001",
   "messageId": "MSG-001",
   "deviceId": "ARD-001",
   "sensorId": "TEMP-001",
@@ -97,9 +98,6 @@ Semantic Validation
 Source Validation
      |
      v
-Duplicate Detection
-     |
-     v
 Physical Plausibility
      |
      v
@@ -120,6 +118,7 @@ Structural validation determines whether the telemetry message contains the info
 
 The following fields are required:
 
+- `measurementId`
 - `messageId`
 - `deviceId`
 - `sensorId`
@@ -289,64 +288,20 @@ INCOMPATIBLE_MEASUREMENT_TYPE
 
 ---
 
-# 8. Duplicate Message Detection
+# 8. Transactional Idempotency
 
-The telemetry protocol uses MQTT QoS 1.
+After validation, the shared ingestion use case attempts to insert the
+measurement and update twin state in one transaction. PostgreSQL enforces
+independent uniqueness constraints on `messageId` and `measurementId`.
 
-QoS 1 provides at-least-once delivery semantics, meaning the same telemetry message may be delivered more than once.
-
-Therefore every telemetry message has a unique:
-
-```text
-messageId
-```
-
-The `messageId` represents the identity of the telemetry message.
-
-Example:
-
-```text
-MSG-001
-```
-
-If the same message is delivered twice:
-
-```text
-MSG-001 → first delivery
-MSG-001 → second delivery
-```
-
-the second delivery must not create another historical measurement.
-
-### 8.1 Application boundary
-
-Duplicate detection is represented through:
-
-```text
-TelemetryMessageRegistry
-```
-
-The application asks whether a `messageId` has already been processed.
-
-### 8.2 Rejection reason
-
-```text
-DUPLICATE_MESSAGE
-```
-
-### 8.3 Database integrity
-
-Application-level duplicate detection is not sufficient by itself to guarantee uniqueness under concurrent processing.
-
-The persistence layer must therefore enforce uniqueness for:
-
-```text
-MEASUREMENT.message_id
-```
-
-using a database uniqueness constraint.
-
-The application check and database constraint provide complementary protection.
+Preserve both identifiers across retries and HTTP/MQTT submissions. A validated
+retry with the same identifiers, sensor, measurement type, value, unit, and
+measurement timestamp returns `ALREADY_PROCESSED`. Backend reception time is
+excluded from the comparison. Reusing either identifier for a different event
+is an identity conflict. Neither outcome inserts another historical row or
+updates the twin. A uniqueness check before insertion alone would allow
+concurrent deliveries to race. DT-012 integration coverage should verify retries
+across HTTP and MQTT.
 
 ---
 
@@ -457,7 +412,6 @@ TelemetryValidationResult
           +-- UNKNOWN_SENSOR
           +-- SENSOR_DEVICE_MISMATCH
           +-- INCOMPATIBLE_MEASUREMENT_TYPE
-          +-- DUPLICATE_MESSAGE
           +-- PHYSICAL_VALUE_OUT_OF_RANGE
           +-- INVALID_TIMESTAMP
 ```
@@ -476,8 +430,7 @@ The current order is:
 1. Structural
 2. Semantic
 3. Source
-4. Duplicate
-5. Physical plausibility
+4. Physical plausibility
 ```
 
 A failed earlier validation prevents unnecessary subsequent processing.
@@ -492,7 +445,6 @@ STRUCTURAL_ERROR
       |
       X
 No source lookup
-No duplicate lookup
 No plausibility evaluation
 ```
 
@@ -505,7 +457,6 @@ Unknown device
 UNKNOWN_DEVICE
       |
       X
-No duplicate processing
 No plausibility evaluation
 ```
 
@@ -667,13 +618,6 @@ DT-005 must include tests for:
 - sensor/device mismatch
 - unsupported measurement type
 
-### Duplicate detection
-
-- new message accepted
-- duplicate message rejected
-- duplicate detection uses `messageId`
-- invalid earlier validation prevents duplicate lookup when appropriate
-
 ### Physical plausibility
 
 - plausible value accepted
@@ -697,7 +641,7 @@ Implemented responsibilities:
 [x] Structural validation
 [x] Semantic validation
 [x] Source validation
-[x] Duplicate detection
+[x] Transactional idempotency
 [x] Physical plausibility boundary
 [x] Unit/type compatibility
 [x] Validation result model
@@ -766,11 +710,6 @@ Telemetry Message
       |
       v
 +-----------------------+
-| Duplicate Detection   |
-+-----------------------+
-      |
-      v
-+-----------------------+
 | Physical Plausibility |
 +-----------------------+
       |
@@ -778,7 +717,7 @@ Telemetry Message
 Domain Measurement
       |
       v
-Persistence / Twin
+Transactional Idempotency / Persistence / Twin
 ```
 
 The central principle is:

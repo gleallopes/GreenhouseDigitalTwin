@@ -15,3 +15,17 @@ spring:
   flyway:
     enabled: true
 
+telemetry:
+  mqtt:
+    enabled: ${MQTT_ENABLED:false}
+    broker-uri: ${MQTT_BROKER_URI:tcp://127.0.0.1:1883}
+    client-id: ${MQTT_CLIENT_ID:greenhouse-digital-twin}
+    topics: ${MQTT_TOPICS:}
+    qos: ${MQTT_QOS:1}
+    clean-session: ${MQTT_CLEAN_SESSION:false}
+    connect-timeout: ${MQTT_CONNECT_TIMEOUT:5s}
+    reconnect-initial-delay: ${MQTT_RECONNECT_INITIAL_DELAY:1s}
+    reconnect-max-delay: ${MQTT_RECONNECT_MAX_DELAY:30s}
+    max-payload-bytes: ${MQTT_MAX_PAYLOAD_BYTES:4096}
+    username: ${MQTT_USERNAME:}
+    password: ${MQTT_PASSWORD:}
