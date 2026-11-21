@@ -2,6 +2,7 @@
 package com.greenhousedigitaltwin.telemetry.infrastructure.persistence;
 
 import com.greenhousedigitaltwin.greenhouse.domain.SensorId;
+import com.greenhousedigitaltwin.telemetry.application.port.DeviceGreenhouseRegistry;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceRegistry;
 import com.greenhousedigitaltwin.telemetry.application.port.MeasurementSourceValidationResult;
 import com.greenhousedigitaltwin.telemetry.domain.MeasurementType;
@@ -14,12 +15,20 @@ import java.util.Objects;
 
 @Repository
 public class PostgresMeasurementSourceRegistry
-        implements MeasurementSourceRegistry {
+        implements MeasurementSourceRegistry, DeviceGreenhouseRegistry {
 
     private final JdbcTemplate jdbcTemplate;
 
     public PostgresMeasurementSourceRegistry(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @Override
+    public boolean belongsToGreenhouse(String deviceId, String greenhouseId) {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM device WHERE id = ? AND greenhouse_id = ?)",
+                Boolean.class, deviceId, greenhouseId
+        ));
     }
 
     @Override

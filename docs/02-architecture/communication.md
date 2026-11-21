@@ -58,10 +58,11 @@ greenhouse/GH-001/event/command
 
 ## 5. Telemetry Payload
 
-Conceptual payload:
+The MQTT payload is a JSON object with these eight required fields:
 
 ```json
 {
+  "measurementId": "MEAS-001",
   "messageId": "MSG-001",
   "deviceId": "ARD-001",
   "sensorId": "TEMP-001",
@@ -72,7 +73,17 @@ Conceptual payload:
 }
 ```
 
-The backend adds `receivedAt` when the message is received.
+The backend assigns `receivedAt` when creating the validated measurement.
+Publishers supply both identifiers and preserve them across retries and across
+HTTP and MQTT submissions of the same event. The adapter passes both through
+unchanged. See the [validation specification](../03-design/Telemetry%20Validation%20Specification.md#8-transactional-idempotency).
+
+The subscriber accepts one UTF-8 JSON object. Duplicate keys, trailing JSON,
+unknown fields, missing fields, and type coercion are rejected. Identifiers
+are nonblank. Measurement and message IDs are limited to 100 characters, and
+device and sensor IDs to 50. `measuredAt` must include an offset or `Z`, with
+zero to six fractional digits. The greenhouse topic segment is nonblank,
+limited to 50 characters, and excludes wildcard and control characters.
 
 ## 6. Telemetry Processing
 
@@ -81,31 +92,61 @@ MQTT Message
      ↓
 Structural Validation
      ↓
+Topic Greenhouse / Device Check
+     ↓
 Semantic Validation
      ↓
 Source Validation
-     ↓
-Duplicate Detection
      ↓
 Physical Plausibility
      ↓
 Accepted Measurement
      ↓
-Persistence + Twin Update
+Transactional Idempotency + History Insert + Conditional Twin Update
 ```
 
 Invalid messages must not update the Digital Twin.
 
 ## 7. QoS
 
-Initial MQTT QoS is **QoS 1**.
+DT-012 uses MQTT 3.1.1, QoS 1 for publication and subscription, and
+`retain=false` for telemetry publishers. The subscriber uses a stable client ID
+and `cleanSession=false`. It enables manual acknowledgment before CONNECT and
+verifies the granted subscription QoS before reporting readiness. Processing
+starts serially. The reconnect delay doubles up to the configured maximum and
+resets after a terminal acknowledgment on a ready connection. The subscriber
+checks exact configured topics and actual delivery QoS. Messages already
+queued in a persistent session can be handled after CONNACK while the client
+waits for the new SUBACK. Readiness still requires an exact grant for every
+configured topic.
 
-This means the system must tolerate duplicate delivery.
+The broker's PUBACK to a publisher confirms protocol delivery to the broker.
+The subscriber sends its own PUBACK after the ingestion use case returns
+`PERSISTED` or `ALREADY_PROCESSED` and the database transaction has committed.
+Permanent rejections, including malformed or oversized payloads and identity
+conflicts, are acknowledged after sanitized reporting for deliveries with an
+acknowledgment. Transient and unexpected failures leave the delivery
+unacknowledged where possible and trigger a disconnect and scheduled reconnect.
+Withholding PUBACK on an open connection alone does not trigger immediate
+redelivery. If the session survives and the broker redelivers after a database
+commit, transactional idempotency prevents another write. PUBACK carries no
+application outcome, and DT-012 defines no application receipt topic.
 
-Therefore:
-- `messageId` is required;
-- duplicate detection is required;
-- database uniqueness provides the final persistence integrity guarantee.
+Broker availability is independent of HTTP ingestion. Shutdown cancels retries,
+stops accepting deliveries and gives work already in progress time to finish.
+An unfinished delivery is left for session recovery. The adapter bounds its
+shutdown wait. Client cleanup can still depend on an in-progress database call
+returning.
+
+MQTT ingestion defaults to disabled. Connection and subscription settings and
+the payload cap are externalized through `application.yml`. The cap defaults
+to 4096 bytes. Local development uses the existing loopback host binding.
+Session recovery assumes the broker retains the session and has capacity to
+queue QoS 1 deliveries. A publisher can receive PUBACK with no subscriber
+session available. Queue exhaustion, lost sessions, or broker restart can
+lose pending messages. The broker and database do not share a transaction,
+so the practical guarantee is duplicate-tolerant processing of deliveries
+retained by the session. Persistence across broker restarts is deferred.
 
 ## 8. Retained Messages
 
@@ -251,6 +292,13 @@ The MQTT adapter owns:
 - QoS;
 - broker connection handling.
 
+DT-012 checks that the greenhouse in the topic matches the registered
+greenhouse for the payload device through an application port. The shared
+ingestion path remains responsible for device and sensor validation. The
+greenhouse lookup precedes ingestion and runs outside the write transaction.
+Concurrent reassignment of a registered device can therefore race with this
+check.
+
 The application/domain owns:
 - telemetry validation rules;
 - command lifecycle;
@@ -274,4 +322,9 @@ The architecture must support:
 - secure transport;
 - credential protection.
 
-Security details are governed by the corresponding ADRs and security requirements.
+Topic-to-device consistency checks the claimed source relationship. Publisher
+authentication, device-scoped authorization and verified TLS are separate
+deployment hardening work. The anonymous local broker must stay within the
+existing development network. The adapter's byte limit is checked after
+Paho receives the payload. Broker packet and queue limits, publisher rate
+controls, and advanced replay protection remain deployment hardening work.
